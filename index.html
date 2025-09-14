@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>School Results System</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  .hidden { display: none; }
+  .panel { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+  button { margin-top: 10px; padding: 6px 12px; }
+  input, select { margin: 4px 0; padding: 4px; }
+  hr { margin: 12px 0; }
+  pre { white-space: pre-wrap; word-wrap: break-word; }
+</style>
+</head>
+<body>
+<h1>📚 School Results System</h1>
+
+<!-- TEACHER LOGIN -->
+<div id="teacherLogin" class="panel">
+  <h2>Teacher Login</h2>
+  <input type="text" id="teacherName" placeholder="Teacher Name"><br>
+  <input type="password" id="teacherPass" placeholder="Password"><br>
+  <button onclick="teacherLogin()">Login</button>
+</div>
+
+<!-- TEACHER PANEL -->
+<div id="teacherPanel" class="panel hidden">
+  <h2>Welcome, <span id="teacherLabel"></span></h2>
+  <button onclick="showChangePassword('teacher')">Change Password</button><br><br>
+  <label>Select Grade:
+    <select id="teacherGradeSelect" onchange="loadTeacherGrade()"></select>
+  </label>
+  <label>Select Subject:
+    <select id="teacherSubjectSelect" onchange="loadTeacherGrade()"></select>
+  </label>
+  <div id="teacherStudentsList"></div>
+  <button onclick="teacherLogout()">Logout</button>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="adminLogin" class="panel">
+  <h2>Admin Login</h2>
+  <input type="text" id="adminName" placeholder="Admin Name"><br>
+  <input type="password" id="adminPass" placeholder="Password"><br>
+  <button onclick="adminLogin()">Login</button>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" class="panel hidden">
+  <h2>Welcome, <span id="adminLabel"></span> (Admin)</h2>
+  <button onclick="showChangePassword('admin')">Change Password</button><br><br>
+
+  <h3>Assign Teachers</h3>
+  <label>Teacher:
+    <select id="assignTeacherSelect"></select>
+  </label>
+  <label>Grade:
+    <select id="assignGradeSelect">
+      <option value="1">Grade 1</option><option value="2">Grade 2</option>
+      <option value="3">Grade 3</option><option value="4">Grade 4</option>
+      <option value="5">Grade 5</option><option value="6">Grade 6</option>
+      <option value="7">Grade 7</option><option value="8">Grade 8</option>
+      <option value="9">Grade 9</option>
+    </select>
+  </label>
+  <label>Subjects (Ctrl+Click to select multiple):
+    <select id="assignSubjectsSelect" multiple size="3">
+      <option value="Math">Math</option>
+      <option value="English">English</option>
+      <option value="Science">Science</option>
+    </select>
+  </label>
+  <button onclick="assignTeacherSubjects()">Assign Subjects</button>
+
+  <h3>View & Send Results</h3>
+  <label>Select Grade:
+    <select id="gradeSelect" onchange="loadAdminGrade()">
+      <option value="">-- Select Grade --</option>
+      <option value="1">Grade 1</option><option value="2">Grade 2</option>
+      <option value="3">Grade 3</option><option value="4">Grade 4</option>
+      <option value="5">Grade 5</option><option value="6">Grade 6</option>
+      <option value="7">Grade 7</option><option value="8">Grade 8</option>
+      <option value="9">Grade 9</option>
+    </select>
+  </label>
+  <div id="studentsList"></div>
+  <button onclick="sendAllResults()">📧 Send All Results</button>
+  <br><br>
+  <button onclick="adminLogout()">Logout</button>
+</div>
+
+<!-- CHANGE PASSWORD PANEL -->
+<div id="changePasswordPanel" class="panel hidden">
+  <h2>Change Password</h2>
+  <input type="password" id="oldPass" placeholder="Old Password"><br>
+  <input type="password" id="newPass" placeholder="New Password"><br>
+  <input type="password" id="confirmPass" placeholder="Confirm New Password"><br>
+  <button onclick="changePassword()">Change Password</button>
+  <button onclick="closeChangePassword()">Cancel</button>
+</div>
+
+<!-- EmailJS SDK -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script>
+emailjs.init("ZpMvJKvZVApD6j37T"); // Public Key
+
+let teachers = [
+  { name: "Mr. Kamau", password: "kamau123", subjects: ["Math","English"], grades: [5,6] },
+  { name: "Ms. Wanjiru", password: "wanjiru123", subjects: ["Science"], grades: [4,5] }
+];
+
+let admin = { name: "mwangi", password: "admin123", email: "simonkariukike@gmail.com" };
+
+const allStudents = {};
+for(let g=1; g<=9; g++){
+  allStudents[g] = [
+    { name: `kamangu`, parentName: `hellen`, parentEmail: `hellenwanjirung@gmail.com`, results: {} },
+    { name: `StudentB_G${g}`, parentName: `ParentB_G${g}`, parentEmail: `parentB_g${g}@example.com`, results: {} }
+  ];
+}
+
+let currentTeacher=null, currentAdmin=null, currentGrade=null, currentSubject=null, changePwdFor=null;
+
+// ---------- TEACHER ----------
+function teacherLogin(){
+  const name = document.getElementById("teacherName").value.trim();
+  const pass = document.getElementById("teacherPass").value.trim();
+  const teacher = teachers.find(t => t.name===name && t.password===pass);
+  if(teacher){
+    currentTeacher = teacher;
+    document.getElementById("teacherLabel").innerText = teacher.name;
+    document.getElementById("teacherLogin").classList.add("hidden");
+    document.getElementById("teacherPanel").classList.remove("hidden");
+    loadTeacherGradeOptions();
+    loadTeacherSubjectOptions();
+  }else{ alert("Invalid teacher credentials."); }
+}
+
+function loadTeacherGradeOptions(){
+  const sel = document.getElementById("teacherGradeSelect");
+  sel.innerHTML="<option value=''>-- Select Grade --</option>";
+  currentTeacher.grades.forEach(g=>sel.innerHTML+=`<option value='${g}'>Grade ${g}</option>`);
+}
+function loadTeacherSubjectOptions(){
+  const sel = document.getElementById("teacherSubjectSelect");
+  sel.innerHTML="";
+  currentTeacher.subjects.forEach(s=>sel.innerHTML+=`<option value='${s}'>${s}</option>`);
+}
+
+function loadTeacherGrade(){
+  const grade = document.getElementById("teacherGradeSelect").value;
+  const subj = document.getElementById("teacherSubjectSelect").value;
+  currentGrade = grade;
+  currentSubject = subj;
+  const container=document.getElementById("teacherStudentsList");
+  container.innerHTML="";
+  if(!grade || !subj || !allStudents[grade]) return;
+  allStudents[grade].forEach((stu,idx)=>{
+    const res = stu.results[subj] || {marks:"", comment:""};
+    const div=document.createElement("div");
+    div.innerHTML=`
+      <h3>${stu.name}</h3>
+      <label>Marks in ${subj}: <input type="number" id="marks-${grade}-${subj}-${idx}" value="${res.marks}"></label><br>
+      <label>Comment: <input type="text" id="comment-${grade}-${subj}-${idx}" value="${res.comment}"></label><br>
+      <button onclick="saveTeacherResult('${grade}','${subj}',${idx})">Save</button><hr>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function saveTeacherResult(grade, subj, idx){
+  const marks=document.getElementById(`marks-${grade}-${subj}-${idx}`).value;
+  const comment=document.getElementById(`comment-${grade}-${subj}-${idx}`).value;
+  allStudents[grade][idx].results[subj]={marks, comment};
+  alert(`Saved ${subj} result for ${allStudents[grade][idx].name}`);
+}
+
+function teacherLogout(){currentTeacher=null; document.getElementById("teacherLogin").classList.remove("hidden"); document.getElementById("teacherPanel").classList.add("hidden");}
+
+// ---------- ADMIN ----------
+function adminLogin(){
+  const name = document.getElementById("adminName").value.trim();
+  const pass = document.getElementById("adminPass").value.trim();
+  if(name===admin.name && pass===admin.password){
+    currentAdmin=admin;
+    document.getElementById("adminLabel").innerText=currentAdmin.name;
+    document.getElementById("adminLogin").classList.add("hidden");
+    document.getElementById("adminPanel").classList.remove("hidden");
+    loadAssignTeacherOptions();
+  }else{ alert("Invalid admin credentials."); }
+}
+
+function adminLogout(){currentAdmin=null; document.getElementById("adminLogin").classList.remove("hidden"); document.getElementById("adminPanel").classList.add("hidden");}
+
+function loadAssignTeacherOptions(){
+  const sel = document.getElementById("assignTeacherSelect");
+  sel.innerHTML="";
+  teachers.forEach((t,i)=>sel.innerHTML+=`<option value='${i}'>${t.name}</option>`);
+}
+
+function assignTeacherSubjects(){
+  const tIndex = document.getElementById("assignTeacherSelect").value;
+  const grade = parseInt(document.getElementById("assignGradeSelect").value);
+  const subjectsSelect = document.getElementById("assignSubjectsSelect");
+  const selectedSubjects = Array.from(subjectsSelect.selectedOptions).map(opt => opt.value);
+  if(!selectedSubjects.length){ alert("Select at least one subject."); return; }
+  const t = teachers[tIndex];
+  if(!t.grades.includes(grade)) t.grades.push(grade);
+  selectedSubjects.forEach(subj => { if(!t.subjects.includes(subj)) t.subjects.push(subj); });
+  alert(`Assigned ${t.name} to Grade ${grade} for subjects: ${selectedSubjects.join(", ")}`);
+  loadTeacherGradeOptions();
+  loadTeacherSubjectOptions();
+}
+
+function loadAdminGrade(){
+  const grade = document.getElementById("gradeSelect").value;
+  currentGrade = grade;
+  const container=document.getElementById("studentsList");
+  container.innerHTML="";
+  if(!grade || !allStudents[grade]) return;
+  allStudents[grade].forEach((stu,idx)=>{
+    let resText="";
+    for(const subj in stu.results){
+      const r=stu.results[subj];
+      resText+=`${subj}: ${r.marks} (${r.comment})\n`;
+    }
+    const div=document.createElement("div");
+    div.innerHTML=`
+      <h3>${stu.name}</h3>
+      <pre>${resText || "No results entered yet."}</pre>
+      <p><strong>Parent:</strong> ${stu.parentName} (${stu.parentEmail})</p>
+      <button onclick="sendResult(${grade},${idx})">Send Result</button><hr>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// ---------- SEND EMAIL TO PARENT ----------
+function sendResult(grade, idx){
+  const stu = allStudents[grade][idx];
+  let message = "";
+  for(const subj in stu.results){
+    const r = stu.results[subj];
+    message += `${subj}: ${r.marks} (${r.comment})\n`;
+  }
+
+  emailjs.send("service_ni2atur", "template_6j5jguv", {
+    to_name: stu.parentName,
+    student_name: stu.name,
+    message: message,
+    to_email: stu.parentEmail  // DYNAMIC parent email
+  }).then(res => {
+    alert(`Results for ${stu.name} sent to ${stu.parentEmail}`);
+  }, err => {
+    alert(`Failed to send: ${JSON.stringify(err)}`);
+  });
+}
+
+function sendAllResults(){
+  if(!currentGrade || !allStudents[currentGrade]){alert("Select grade"); return;}
+  allStudents[currentGrade].forEach((stu,idx)=>sendResult(currentGrade,idx));
+}
+
+// ---------- PASSWORD CHANGE ----------
+function showChangePassword(forWho){ changePwdFor=forWho; document.getElementById("changePasswordPanel").classList.remove("hidden"); }
+function closeChangePassword(){ document.getElementById("changePasswordPanel").classList.add("hidden"); }
+function changePassword(){
+  const oldP=document.getElementById("oldPass").value;
+  const newP=document.getElementById("newPass").value;
+  const confirmP=document.getElementById("confirmPass").value;
+  if(newP!==confirmP){alert("New passwords do not match"); return;}
+  if(changePwdFor==="teacher"){
+    if(oldP!==currentTeacher.password){alert("Old password incorrect"); return;}
+    currentTeacher.password=newP; alert("Teacher password changed successfully");
+  }else if(changePwdFor==="admin"){
+    if(oldP!==admin.password){alert("Old password incorrect"); return;}
+    admin.password=newP; alert("Admin password changed successfully");
+  }
+  document.getElementById("oldPass").value="";
+  document.getElementById("newPass").value="";
+  document.getElementById("confirmPass").value="";
+  closeChangePassword();
+}
+</script>
+</body>
+</html>
